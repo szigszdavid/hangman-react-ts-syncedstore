@@ -1,8 +1,7 @@
 import React from "react";
 import { useSyncedStore } from "@syncedstore/react";
-import { boxed, getYjsValue } from "@syncedstore/core";
+import { getYjsValue } from "@syncedstore/core";
 import { store } from "./store"; // the store we defined above
-import { ObjectInspector } from "react-inspector";
 import * as Y from "yjs";
 
 function App() {
@@ -13,10 +12,62 @@ function App() {
   const state = useSyncedStore(store);
 
   const doc = getYjsValue(state);
-  const array = getYjsValue(state.guesses);
-  const map = state.guesses.length ? getYjsValue(state.guesses[0]) : undefined;
+  //const array = getYjsValue(state.guesses);
+  //const map = state.guesses.length ? getYjsValue(state.guesses[0]) : undefined;
   //console.log((doc as Y.Doc).clientID);
 
+  const myClientID = (doc as Y.Doc).clientID
+   
+  //state.gameData.currentPlayerIndex = 0
+
+  if(!([...state.players].includes(myClientID)))
+  {
+    state.players.push(myClientID)
+    state.gameData.currentPlayerIndex = 0
+    state.gameData.currentPlayerID = state.players[state.gameData.currentPlayerIndex]
+  }
+
+  const letterButtonsOnClick = (letter : string) => 
+  {
+    if (state.gameData.currentPlayerID === myClientID) {
+
+      state.guesses.push(letter);
+      state.gameData.badAttempts = state.guesses
+      .filter(el => !state.gameData.answer?.split("").some(e => e === el)).length;
+    
+      if (state.players.length - 1 === state.gameData.currentPlayerIndex) {
+            state.gameData.currentPlayerID = state.players[0];
+            state.gameData.currentPlayerIndex = 0;
+            
+      }
+      else
+      {
+          state.gameData.currentPlayerIndex!++;
+          state.gameData.currentPlayerID = state.players[state.gameData.currentPlayerIndex!];
+      }
+    }
+  
+  }
+
+  const newGameButtonOnClick = () => {
+      state.gameData.allAnswers = [
+        "alma",
+        "körte",
+        "cseresznye",
+        "szilva",
+        "szótár",
+      ];
+      state.gameData.answer =
+        state.gameData.allAnswers[
+          Math.floor(Math.random() * state.gameData.allAnswers.length)
+        ];
+      state.guesses.splice(0, state.guesses.length);
+      state.gameData.badAttempts = 0;
+      state.gameData.maxTry = 9;
+  }
+
+  const isWon = state.gameData.answer?.split("").map((e) => [...state.guesses].some(el => el === e) ? e : " _ ").some(el => el === " _ ") || state.guesses.length === 0
+  
   return (
     <>
       <h1>Hangman game</h1>
@@ -25,31 +76,12 @@ function App() {
       <div id="you-lose" hidden={state.gameData.badAttempts !== state.gameData.maxTry || !state.gameData.badAttempts}>
         <span>You lose!</span>
       </div>
-      <div id="you-won" hidden={state.gameData.answer
-            ?.split("")
-            .map((e) =>
-              [...state.guesses].some(el => el === e) ? e : " _ "
-            ).some(el => el === " _ ")}>
+      <div id="you-won" hidden={isWon}>
         <span>You win</span>
       </div>
       <button
           id="newgame"
-          onClick={() => {
-            state.gameData.allAnswers = [
-              "alma",
-              "körte",
-              "cseresznye",
-              "szilva",
-              "szótár",
-            ];
-            state.gameData.answer =
-              state.gameData.allAnswers[
-                Math.floor(Math.random() * state.gameData.allAnswers.length)
-              ];
-            state.guesses.splice(0, state.guesses.length);
-            state.gameData.badAttempts = 0;
-            state.gameData.maxTry = 9;
-          }}
+          onClick={newGameButtonOnClick}
         >
           New game
       </button>
@@ -61,21 +93,19 @@ function App() {
             [...state.guesses].some(el => el === e) ? e : " _ "
             )}
         </p>
+        <h3 style={{color: "green"}}>{state.gameData.currentPlayerID === myClientID ? "Your turn!" : ""}</h3>
         <br />
         {arrayOfLetters.map((letter) => (
           <button
-            onClick={() => {
-              state.guesses.push(letter);
-              state.gameData.badAttempts = state.guesses
-              .filter(el => !state.gameData.answer?.split("").some(e => e === el)).length
-            }}
+            onClick={
+              () => letterButtonsOnClick(letter)
+              }
             disabled={state.guesses.filter((el) => el === letter).length > 0}
           >
             {letter}
           </button>
         ))}
       </div>
-
       <div id="score">Bad attempts: {state.gameData.badAttempts}/9</div>
 
       <svg width="200px" height="200px" stroke="black" className="revealed" />
